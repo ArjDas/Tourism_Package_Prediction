@@ -9,119 +9,111 @@ model_path = os.path.join(
     os.path.dirname(__file__),
     "best_tourism_model_v1.joblib"
 )
-
 model = joblib.load(model_path)
 
-st.title("Wellness Tourism Package Prediction")
+st.title("Tourism Package Purchase Prediction App")
+
 st.write("""
 This application predicts whether a customer is likely to purchase
-the Wellness Tourism Package based on their profile and travel preferences.
-Enter the customer details below to get a prediction.
+a tourism package based on their profile and interaction details.
+Enter the customer information below to get a prediction.
 """)
 
-# Customer details
-age = st.number_input("Age", 18, 100, 30)
-city_tier = st.selectbox("City Tier", [1, 2, 3])
+TypeofContact = st.selectbox(
+    "Type of Contact",
+    ["Company Invited", "Self Inquiry"]
+)
 
-occupation = st.selectbox(
+Age = st.number_input("Age", 18, 100, 30)
+CityTier = st.selectbox("City Tier", [1, 2, 3])
+
+DurationOfPitch = st.number_input(
+    "Duration of Pitch (minutes)", 0, 300, 15
+)
+
+Occupation = st.selectbox(
     "Occupation",
-    ["Salaried", "Small Business", "Large Business", "Freelancer"]
+    ["Salaried", "Small Business", "Large Business"]
 )
 
-gender = st.selectbox("Gender", ["Male", "Female"])
+Gender = st.selectbox("Gender", ["Male", "Female"])
 
-marital_status = st.selectbox(
+NumberOfPersonVisiting = st.number_input(
+    "Number of Persons Visiting", 1, 20, 2
+)
+
+NumberOfFollowups = st.number_input(
+    "Number of Followups", 0, 20, 3
+)
+
+ProductPitched = st.selectbox(
+    "Product Pitched",
+    ["Basic", "Standard", "Deluxe", "Super Deluxe", "King"]
+)
+
+PreferredPropertyStar = st.selectbox(
+    "Preferred Property Star", [3, 4, 5]
+)
+
+MaritalStatus = st.selectbox(
     "Marital Status",
-    ["Single", "Married", "Divorced"]
+    ["Married", "Single", "Divorced"]
 )
 
-designation = st.selectbox(
+NumberOfTrips = st.number_input("Number of Trips", 0, 50, 3)
+
+Passport = st.selectbox("Has Passport?", [0, 1])
+
+PitchSatisfactionScore = st.selectbox(
+    "Pitch Satisfaction Score", [1, 2, 3, 4, 5]
+)
+
+OwnCar = st.selectbox("Owns a Car?", [0, 1])
+
+NumberOfChildrenVisiting = st.number_input(
+    "Number of Children Visiting", 0, 10, 0
+)
+
+Designation = st.selectbox(
     "Designation",
     ["Executive", "Manager", "Senior Manager", "AVP", "VP"]
 )
 
-# Travel preferences
-number_of_person_visiting = st.number_input(
-    "Number of Persons Visiting", 1, 10, 2
+MonthlyIncome = st.number_input(
+    "Monthly Income", 0, 200000, 25000
 )
 
-preferred_property_star = st.selectbox(
-    "Preferred Property Star", [3, 4, 5]
-)
-
-number_of_trips = st.number_input(
-    "Number of Trips Annually", 1, 30, 3
-)
-
-passport = st.selectbox("Passport", [0, 1])
-
-own_car = st.selectbox("Own Car", [0, 1])
-
-number_of_children_visiting = st.number_input(
-    "Number of Children Visiting", 0, 10, 0
-)
-
-monthly_income = st.number_input(
-    "Monthly Income", 1000, 200000, 25000
-)
-
-# Customer interaction details
-type_of_contact = st.selectbox(
-    "Type of Contact", ["Company Invited", "Self Inquiry"]
-)
-
-pitch_satisfaction_score = st.selectbox(
-    "Pitch Satisfaction Score", [1, 2, 3, 4, 5]
-)
-
-product_pitched = st.selectbox(
-    "Product Pitched",
-    ["Basic", "Deluxe", "Standard", "Super Deluxe", "King"]
-)
-
-number_of_followups = st.number_input(
-    "Number of Followups", 1, 10, 3
-)
-
-duration_of_pitch = st.number_input(
-    "Duration of Pitch (Minutes)", 0.0, 150.0, 10.0
-)
-
-# Prepare input data
 input_data = pd.DataFrame([{
-    "Age": age,
-    "TypeofContact": type_of_contact,
-    "CityTier": city_tier,
-    "Occupation": occupation,
-    "Gender": gender,
-    "NumberOfPersonVisiting": number_of_person_visiting,
-    "PreferredPropertyStar": preferred_property_star,
-    "MaritalStatus": marital_status,
-    "NumberOfTrips": number_of_trips,
-    "Passport": passport,
-    "OwnCar": own_car,
-    "NumberOfChildrenVisiting": number_of_children_visiting,
-    "Designation": designation,
-    "MonthlyIncome": monthly_income,
-    "PitchSatisfactionScore": pitch_satisfaction_score,
-    "ProductPitched": product_pitched,
-    "NumberOfFollowups": number_of_followups,
-    "DurationOfPitch": duration_of_pitch
+    "Age": Age,
+    "TypeofContact": TypeofContact,
+    "CityTier": CityTier,
+    "DurationOfPitch": DurationOfPitch,
+    "Occupation": Occupation,
+    "Gender": Gender,
+    "NumberOfPersonVisiting": NumberOfPersonVisiting,
+    "NumberOfFollowups": NumberOfFollowups,
+    "ProductPitched": ProductPitched,
+    "PreferredPropertyStar": PreferredPropertyStar,
+    "MaritalStatus": MaritalStatus,
+    "NumberOfTrips": NumberOfTrips,
+    "Passport": Passport,
+    "PitchSatisfactionScore": PitchSatisfactionScore,
+    "OwnCar": OwnCar,
+    "NumberOfChildrenVisiting": NumberOfChildrenVisiting,
+    "Designation": Designation,
+    "MonthlyIncome": MonthlyIncome
 }])
 
-if st.button("Predict Purchase"):
+if st.button("Predict Package Purchase"):
 
-    prediction = model.predict(input_data)[0]
+    prediction_proba = model.predict_proba(input_data)[0][1]
+    prediction = int(prediction_proba >= 0.45)
 
     result = (
-        "Likely to Purchase Wellness Tourism Package"
+        "Likely to Purchase Tourism Package"
         if prediction == 1
-        else "Unlikely to Purchase Wellness Tourism Package"
+        else "Unlikely to Purchase Tourism Package"
     )
 
     st.subheader("Prediction Result:")
-
-    if prediction == 1:
-        st.success(f"The model predicts: **{result}**")
-    else:
-        st.warning(f"The model predicts: **{result}**")
+    st.success(f"Model Prediction: **{result}**")
