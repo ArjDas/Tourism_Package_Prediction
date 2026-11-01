@@ -1,42 +1,52 @@
 
-# For data manipulation
-import os
+# for data manipulation
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import make_column_transformer
 from sklearn.pipeline import make_pipeline
 
-# For model training, tuning, and evaluation
+# for model training, tuning, and evaluation
 import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
 
-# For model serialization
+# for model serialization
 import joblib
 import mlflow
+import os
 
-# Set MLflow tracking URI and experiment
 mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("Tourism_Purchase_Prediction")
+mlflow.set_experiment("Tourism_MLOps_experiment")
 
-# Xtrain/Xtest/ytrain/ytest are generated from the previous preparation step
-Xtrain = pd.read_csv("tourism_project/data/Xtrain.csv")
-Xtest = pd.read_csv("tourism_project/data/Xtest.csv")
-ytrain = pd.read_csv("tourism_project/data/ytrain.csv").squeeze()
-ytest = pd.read_csv("tourism_project/data/ytest.csv").squeeze()
+# Xtrain/Xtest/ytrain/ytest are downloaded from the previous job's artifact
+Xtrain = pd.read_csv("Xtrain.csv")
+Xtest = pd.read_csv("Xtest.csv")
+ytrain = pd.read_csv("ytrain.csv").squeeze()
+ytest = pd.read_csv("ytest.csv").squeeze()
 
-# Define numerical and categorical features
+# One-hot encode categorical features and scale numeric features
 numeric_features = [
-    "Age", "CityTier", "NumberOfPersonVisiting",
-    "PreferredPropertyStar", "NumberOfTrips", "Passport",
-    "OwnCar", "NumberOfChildrenVisiting", "MonthlyIncome",
-    "PitchSatisfactionScore", "NumberOfFollowups",
-    "DurationOfPitch"
+    "Age",
+    "DurationOfPitch",
+    "NumberOfPersonVisiting",
+    "NumberOfFollowups",
+    "NumberOfTrips",
+    "NumberOfChildrenVisiting",
+    "MonthlyIncome"
 ]
 
 categorical_features = [
-    "TypeofContact", "Occupation", "Gender",
-    "MaritalStatus", "ProductPitched", "Designation"
+    "TypeofContact",
+    "CityTier",
+    "Occupation",
+    "Gender",
+    "ProductPitched",
+    "PreferredPropertyStar",
+    "MaritalStatus",
+    "Passport",
+    "PitchSatisfactionScore",
+    "OwnCar",
+    "Designation"
 ]
 
 # Set the class weight to handle class imbalance
@@ -52,11 +62,11 @@ preprocessor = make_column_transformer(
 # Define base XGBoost model
 xgb_model = xgb.XGBClassifier(
     scale_pos_weight=class_weight,
-    random_state=42,
-    eval_metric="logloss"
+    random_state=42
 )
 
-# Define hyperparameter grid
+# Small grid so the pipeline runs fast on GitHub Actions.
+# Widen this if you want a more thorough hyperparameter search.
 param_grid = {
     "xgbclassifier__n_estimators": [50, 100],
     "xgbclassifier__max_depth": [2, 3],
@@ -77,7 +87,6 @@ with mlflow.start_run():
         scoring="recall",
         n_jobs=-1
     )
-
     grid_search.fit(Xtrain, ytrain)
 
     # Log all parameter combinations and their mean test scores
@@ -104,25 +113,18 @@ with mlflow.start_run():
     classification_threshold = 0.45
 
     y_pred_train_proba = best_model.predict_proba(Xtrain)[:, 1]
-    y_pred_train = (
-        y_pred_train_proba >= classification_threshold
-    ).astype(int)
+    y_pred_train = (y_pred_train_proba >= classification_threshold).astype(int)
 
     y_pred_test_proba = best_model.predict_proba(Xtest)[:, 1]
-    y_pred_test = (
-        y_pred_test_proba >= classification_threshold
-    ).astype(int)
+    y_pred_test = (y_pred_test_proba >= classification_threshold).astype(int)
 
     train_report = classification_report(
-        ytrain, y_pred_train, output_dict=True, zero_division=0
+        ytrain, y_pred_train, output_dict=True
     )
-
     test_report = classification_report(
-        ytest, y_pred_test, output_dict=True, zero_division=0
+        ytest, y_pred_test, output_dict=True
     )
-
-    print("\nTest Classification Report:")
-    print(classification_report(ytest, y_pred_test, zero_division=0))
+    print(classification_report(ytest, y_pred_test))
 
     # Log the metrics for the best model
     mlflow.log_metrics({
@@ -136,14 +138,12 @@ with mlflow.start_run():
         "test_f1-score": test_report["1"]["f1-score"]
     })
 
-    # Save the trained model for deployment
+    # Save next to app.py so the Streamlit app can load it directly, and log
+    # it as an MLflow artifact for traceability
     os.makedirs("tourism_project/deployment", exist_ok=True)
 
     model_path = "tourism_project/deployment/best_tourism_model_v1.joblib"
-
     joblib.dump(best_model, model_path)
 
-    # Log model as an MLflow artifact
     mlflow.log_artifact(model_path, artifact_path="model")
-
-    print(f"\nModel saved to {model_path}")
+    print(f"Model saved to {model_path}")
